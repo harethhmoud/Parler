@@ -1,5 +1,5 @@
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
 
@@ -34,13 +34,11 @@ export async function speakText(text: string): Promise<void> {
   const audioData = await response.arrayBuffer();
   const base64Audio = arrayBufferToBase64(audioData);
 
-  const fileUri = FileSystem.cacheDirectory + 'tts_response.mp3';
-  await FileSystem.writeAsStringAsync(fileUri, base64Audio, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  const file = new File(Paths.cache, 'tts_response.mp3');
+  await file.write(base64Audio, { encoding: 'base64' });
 
   const { sound } = await Audio.Sound.createAsync(
-    { uri: fileUri },
+    { uri: file.uri },
     { shouldPlay: true }
   );
 
