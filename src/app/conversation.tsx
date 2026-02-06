@@ -104,6 +104,7 @@ export default function ConversationScreen() {
       // Save user message
       const userMessage = await saveMessage(conversationId, 'user', transcript);
       addMessage(userMessage);
+      setLastTranscript('');
 
       // Get AI response
       const aiResponse = await getConversationResponse(transcript, messages);
