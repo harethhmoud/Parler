@@ -8,7 +8,12 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { Audio } from 'expo-av';
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 import { useConversationStore } from '../stores/conversationStore';
 import { RecordButton } from '../components/RecordButton';
 import { transcribeAudio } from '../services/whisper';
@@ -31,13 +36,13 @@ export default function ConversationScreen() {
     addMistake,
   } = useConversationStore();
 
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [lastTranscript, setLastTranscript] = useState<string>('');
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     async function setupAudio() {
-      const { status } = await Audio.requestPermissionsAsync();
+      const { status } = await requestRecordingPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
           'Permission Required',
@@ -46,9 +51,9 @@ export default function ConversationScreen() {
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
     }
 
@@ -61,15 +66,13 @@ export default function ConversationScreen() {
 
   const startRecording = async () => {
     try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(newRecording);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setStatus('recording');
     } catch (error) {
       console.error('Failed to start recording:', error);
@@ -78,19 +81,16 @@ export default function ConversationScreen() {
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
-
     try {
       setStatus('processing');
-      await recording.stopAndUnloadAsync();
+      await recorder.stop();
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
       });
 
-      const uri = recording.getURI();
-      setRecording(null);
+      const uri = recorder.uri;
 
       if (!uri || !conversationId) {
         setStatus('idle');

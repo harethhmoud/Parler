@@ -1,15 +1,15 @@
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
 
-let currentSound: Audio.Sound | null = null;
+let currentPlayer: AudioPlayer | null = null;
 
 export async function speakText(text: string): Promise<void> {
   // Stop any currently playing audio
-  if (currentSound) {
-    await currentSound.unloadAsync();
-    currentSound = null;
+  if (currentPlayer) {
+    currentPlayer.remove();
+    currentPlayer = null;
   }
 
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
@@ -40,18 +40,16 @@ export async function speakText(text: string): Promise<void> {
     encoding: base64Encoding as FileSystem.EncodingType,
   });
 
-  const { sound } = await Audio.Sound.createAsync(
-    { uri: fileUri },
-    { shouldPlay: true }
-  );
-
-  currentSound = sound;
+  const player = createAudioPlayer({ uri: fileUri });
+  currentPlayer = player;
+  player.play();
 
   return new Promise((resolve) => {
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync();
-        currentSound = null;
+    const subscription = player.addListener('playbackStatusUpdate', (status) => {
+      if (status.didJustFinish) {
+        subscription.remove();
+        player.remove();
+        currentPlayer = null;
         resolve();
       }
     });
@@ -64,10 +62,10 @@ export async function speakText(text: string): Promise<void> {
 }
 
 export async function stopSpeaking(): Promise<void> {
-  if (currentSound) {
-    await currentSound.stopAsync();
-    await currentSound.unloadAsync();
-    currentSound = null;
+  if (currentPlayer) {
+    currentPlayer.pause();
+    currentPlayer.remove();
+    currentPlayer = null;
   }
 }
 

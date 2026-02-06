@@ -38,7 +38,7 @@
     "plugins": [
       "expo-router",
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "Parler needs microphone access to record your voice during French conversations."
         }
